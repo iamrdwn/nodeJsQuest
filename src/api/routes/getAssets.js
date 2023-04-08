@@ -3,13 +3,15 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import db from '../../config/db.config.js'
 
+import validateToken from '../../utils/validateToken.js'
+
 
 const router = express.Router();
 
 const secretKey = process.env['secretKey']
 
 
-router.post("/", async (req, res) => {
+router.get("/", async (req, res) => {
 
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
@@ -19,41 +21,34 @@ router.post("/", async (req, res) => {
     return res.status(401).json({ message: 'Missing token' });
   }
 
+  let username = req.query.username;
+  let validatedToken = validateToken(token, username)
 
-  let { assetType, username, amount, overWriteFlag } = req.body;
-
-  jwt.verify(token, secretKey, (err, decoded) => {
-
-    if (err) {
-      console.error(err);
-      return res.status(401).json({ message: 'Invalid Token' })
-      
-    }
-    
-    const decodedUsername = decoded.username;
-
-    if(username.trim() == decodedUsername ){
-
-
-      db.serialize(async function () {
-
-      
-    } else {
-
-      return res.status(401).json({message : 'You are not authorized to view this shit!'})
-    }
-
-  })
 
   try {
 
-    // Check Token
+    if (validatedToken){
 
-    // Check if overWrite flag is on
-    // if on update a record
-    // if not create a record
-    // return success
+      db.all('SELECT * FROM assets WHERE username = ?', [username], (err, rows)=> {
 
+        if(err){
+          console.error(err)
+          return res.status(500).json({message:'something broke'})
+        }
+
+        if(rows.length === 0){
+          return res.status(404).json({message: 'No Assets found for the user'})
+        } else {
+          return res.status(200).send(rows);
+        }
+        
+      })
+    } else {
+
+        return res.status(401).json({
+            message: 'You are not authorized to view this shit!'
+        })
+    }
 
 
   } catch(err) {
